@@ -5,3 +5,9 @@
 .inject-actions{margin-top:12px;padding:14px;border:1px solid #35506a;border-radius:10px;background:#101d2a}.inject-actions[hidden]{display:none}.inject-actions button{background:linear-gradient(100deg,#b5a1ff,#8dbaff)}.inject-actions p{margin:8px 0 0;color:var(--muted);font-size:11px}
 
 .child-dropzone{margin-top:14px}
+
+.ruffle-preview{margin-top:14px;padding:14px;border:1px solid #35506a;border-radius:10px;background:#101d2a}
+.preview-heading b{font-size:12px}.preview-heading p,.preview-status{margin:4px 0 10px;color:var(--muted);font-size:11px}
+.ruffle-preview button{background:linear-gradient(100deg,#9bc7ff,#77e2cf)}
+.ruffle-container{margin-top:12px;overflow:hidden;border:1px solid #34445c;border-radius:8px;background:#070b11;min-height:240px}
+.ruffle-container[hidden]{display:none}
