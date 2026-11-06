@@ -7,8 +7,12 @@ const injectActions=document.querySelector("#inject-actions");
 const injectButton=document.querySelector("#inject-button");
 const injectNote=document.querySelector("#inject-note");
 const childUrlInput=document.querySelector("#child-url");
+const childFileInput=document.querySelector("#child-swf-file");
+const childDropzone=document.querySelector("#child-dropzone");
 let lastParentFile=null;
 let lastAnalysis=null;
+let lastChildFile=null;
+let lastChildAnalysis=null;
 
 function setStatus(title,detail,type=""){
   statusBox.className="status "+type;
@@ -25,6 +29,26 @@ function showFile(file){
   document.querySelector("#file-meta").textContent=(file.size/1048576).toFixed(2)+" MB · selected";
 }
 fileInput.addEventListener("change",()=>showFile(fileInput.files[0]));
+
+function showChildFile(file){
+  lastChildFile=null;
+  lastChildAnalysis=null;
+  if(!file)return;
+  document.querySelector("#child-file-name").textContent=file.name;
+  document.querySelector("#child-file-meta").textContent=(file.size/1048576).toFixed(2)+" MB · selected; analyze parent and run compatibility check";
+}
+childFileInput.addEventListener("change",()=>showChildFile(childFileInput.files[0]));
+for(const name of ["dragenter","dragover"])childDropzone.addEventListener(name,e=>{e.preventDefault();childDropzone.classList.add("dragging")});
+for(const name of ["dragleave","drop"])childDropzone.addEventListener(name,e=>{e.preventDefault();childDropzone.classList.remove("dragging")});
+childDropzone.addEventListener("drop",e=>{
+  const file=e.dataTransfer.files[0];
+  if(!file)return;
+  const transfer=new DataTransfer();
+  transfer.items.add(file);
+  childFileInput.files=transfer.files;
+  showChildFile(file);
+});
+
 for(const name of ["dragenter","dragover"])dropzone.addEventListener(name,e=>{e.preventDefault();dropzone.classList.add("dragging")});
 for(const name of ["dragleave","drop"])dropzone.addEventListener(name,e=>{e.preventDefault();dropzone.classList.remove("dragging")});
 dropzone.addEventListener("drop",e=>{
@@ -234,7 +258,7 @@ form.addEventListener("submit",async e=>{
  * the uploaded SWF. It only checks whether the selected loader family matches
  * the detected runtime and whether the separate child path is populated.
  */
-injectButton.addEventListener("click",()=>{
+injectButton.addEventListener("click",async()=>{
   if(!lastAnalysis){
     setStatus("Analyze a parent first","Select and analyze the parent SWF before checking compatibility.","error");
     return;
@@ -243,27 +267,68 @@ injectButton.addEventListener("click",()=>{
   const runtime=document.querySelector("#runtime-choice").value;
   const detected=lastAnalysis.runtime;
   const childUrl=childUrlInput.value.trim();
+  const childFile=childFileInput.files[0];
   const loaderPath=runtime==="AVM2"
     ? "loader/avm2/ExternalSwfLoader.as"
     : "loader/avm1/ExternalSwfLoader.as";
-  const childName=runtime==="AVM2"
-    ? "TestPanel-AVM2.swf"
-    : "TestPanel-AVM1.swf";
 
   if(detected!=="unknown" && detected!==runtime){
-    injectNote.textContent="Compatibility check failed. The uploaded SWF was not changed.";
-    setStatus("Runtime mismatch","The parent was detected as "+detected+", but "+runtime+" is selected. Choose the matching runtime.","error");
+    injectNote.textContent="Compatibility check failed. The uploaded parent SWF was not changed.";
+    setStatus("Parent runtime mismatch","The parent was detected as "+detected+", but "+runtime+" is selected. Choose the matching runtime.","error");
     return;
   }
   if(!childUrl){
-    setStatus("Child path required","Enter the relative path or URL for the separate "+childName+" file.","error");
+    setStatus("Child path required","Enter the relative path or URL that the parent loader is expected to request.","error");
     return;
   }
   if(!lastAnalysis.endTags){
-    setStatus("Incomplete timeline","No root timeline End tag was found. The file remains unchanged.","error");
+    setStatus("Incomplete parent timeline","No root timeline End tag was found. The file remains unchanged.","error");
+    return;
+  }
+  if(!childFile){
+    setStatus("Select the child SWF","Choose the separate Test Panel SWF so its signature, tags, and runtime can be inspected too.","error");
+    return;
+  }
+  if(!childFile.name.toLowerCase().endsWith(".swf")){
+    setStatus("Unsupported child file","The child file must have a .swf extension.","error");
+    return;
+  }
+  if(childFile.size>100*1024*1024){
+    setStatus("Child file too large","The browser-side child file limit is 100 MB.","error");
     return;
   }
 
-  injectNote.textContent="Checks passed. This read-only build does not compile code, inject a loader, modify the parent, or create a download.";
-  setStatus("Compatibility checks passed","Runtime: "+runtime+". Loader source reference: "+loaderPath+". Child file: "+childUrl+". No SWF bytes were changed.","good");
+  injectButton.disabled=true;
+  injectButton.textContent="Inspecting child SWF…";
+  try{
+    const child=await inspectSwf(childFile);
+    lastChildFile=childFile;
+    lastChildAnalysis=child;
+    if(!child.endTags){
+      injectNote.textContent="Child inspection failed. Neither file was changed.";
+      setStatus("Incomplete child timeline","No root timeline End tag was found in "+childFile.name+".","error");
+      return;
+    }
+    if(child.runtime==="unknown"){
+      injectNote.textContent="The child SWF was parsed, but its ActionScript runtime could not be determined conclusively.";
+      setStatus("Child runtime is inconclusive","The child is "+child.signature+" SWF "+child.version+", but no decisive AVM1 or AVM2 marker was found. Confirm its publish target in your authoring tool.","error");
+      return;
+    }
+    if(child.runtime!==runtime){
+      injectNote.textContent="Parent and child runtime families do not match. Neither file was changed.";
+      setStatus("Parent/child runtime mismatch","Parent: "+runtime+". Child: "+child.runtime+". Re-publish the child for "+runtime+" before using it with this loader.","error");
+      return;
+    }
+
+    const childDetails=child.signature+" SWF "+child.version+" · "+child.width.toFixed(0)+" × "+child.height.toFixed(0)+" px · "+child.frameRate.toFixed(2)+" FPS · "+child.frameCount+" frames · "+child.totalTagCount+" tags.";
+    injectNote.textContent="Parent and child metadata checks passed. This check does not launch Ruffle or prove playback. No SWF bytes were changed.";
+    setStatus("Parent/child compatibility checks passed","Runtime: "+runtime+". Loader source reference: "+loaderPath+". Child path: "+childUrl+". Child file: "+childFile.name+" ("+childDetails+") Ruffle playback has not been tested. Open the child SWF on its own in Ruffle to verify playback. No SWF bytes were changed.","good");
+  }catch(error){
+    lastChildAnalysis=null;
+    injectNote.textContent="Child inspection failed. Neither file was changed.";
+    setStatus("Could not inspect child SWF",error.message||"Unknown parsing error.","error");
+  }finally{
+    injectButton.disabled=false;
+    injectButton.innerHTML="Check parent + child compatibility <span>↗</span>";
+  }
 });
