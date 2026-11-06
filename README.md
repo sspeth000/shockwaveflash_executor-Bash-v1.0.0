@@ -15,9 +15,7 @@ https://sspeth000.github.io/shockwaveflash_executor-Bash-v1.0.0/
 
 ## Current limitation
 
-This is currently a **client-side analyzer**, not yet a working loader injector. It does not reconstruct an original editable FLA, modify AVM1/AVM2 bytecode, compile ActionScript, or produce a patched SWF.
-
-A real browser-only injector still needs a compiled bootstrap payload and a verified method to register and execute it in supported parent SWFs. Arbitrary SWFs cannot be guaranteed to round-trip through decompilation and recompilation. The planned output name for a successful patch is `originalname[execinstalled].swf`.
+This is a **read-only client-side analyzer**. It does not reconstruct an original editable FLA, compile ActionScript, inject bytecode, execute an external child, modify the uploaded SWF, or produce a patched SWF. Arbitrary SWFs cannot be guaranteed to round-trip through decompilation and recompilation.
 
 There is no need to run Flask or install Python for the static browser analyzer.
 
@@ -78,22 +76,6 @@ This is runtime detection and source selection only. It does not inject or compi
 Flash SWF has two standard ActionScript virtual-machine generations: AVM1 (ActionScript 1–2) and AVM2 (ActionScript 3). The parent and child should use matching generations. The ActionScript files in this repository are source files, not compiled SWFs; they still need to be compiled with their matching toolchains and tested in the intended player, including Ruffle if that is the target.
 
 
-## Injection attempt workflow
+## Loader compatibility check
 
-After local analysis, the interface exposes **Attempt loader injection**. The button performs a local preflight: it checks the selected runtime against detected markers, validates the child Test Panel path, rejects unsupported ZWS input, and confirms the parent tag stream has an End tag.
-
-Actual bytecode injection is gated behind an explicit in-browser compiler integration named `BashSwfCompiler`. That integration must provide:
-
-- `compileLoader({ runtime, sourcePath, childUrl })`, returning a `Uint8Array` of compiled runtime bytecode.
-- `injectIntoParent({ parentFile, parentAnalysis, runtime, bytecode, childUrl })`, returning a non-empty `Blob` containing a validated patched SWF.
-
-The page does not currently include that compiler/adapter, so the button will stop after preflight and explain the missing requirement. It will not treat ActionScript source as bytecode, fabricate an output, or modify the uploaded parent. When a verified integration is added, successful output uses `originalname[execinstalled].swf`.
-
-
-## swf-toolkit browser integration
-
-A focused, browser-safe subset of [recepasan/swf-toolkit](https://github.com/recepasan/swf-toolkit) is vendored under `public/vendor/swf-toolkit/` with its MIT license. The integration uses the upstream binary reader, tag parser, ABC tag models, and pure TypeScript LZMA decoder. It deliberately does not import the package's Node-only `node:fs`, `node:path`, or `node:zlib` SWF wrapper.
-
-The browser entry point is `public/vendor/swf-toolkit/src/browser-entry.ts`. The TypeScript build emits static ES modules to `public/vendor/swf-toolkit/dist/`. A GitHub Actions workflow builds and commits those static modules when the vendored source or build configuration changes. The page loads only local files at runtime. If the generated modules are not yet available, the existing in-page analyzer remains as a fallback.
-
-This is a read-only integration for inspecting files you own or are authorized to inspect. It does not compile or inject ActionScript, execute arbitrary code, modify the uploaded SWF, or fabricate a patched download.
+After local analysis, the interface can check whether the selected AVM family matches the detected runtime and whether a separate child SWF path has been supplied. This is a metadata-only check. It never invokes a compiler, injects bytecode, executes the child, changes the uploaded file, or creates an output download.
