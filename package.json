@@ -1,0 +1,11 @@
+{
+  "name": "bash-swf-patcher",
+  "private": true,
+  "version": "0.2.1",
+  "scripts": {
+    "build:swf-toolkit-browser": "tsc -p tsconfig.browser.json"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}
