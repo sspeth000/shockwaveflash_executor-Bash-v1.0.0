@@ -78,4 +78,4 @@ Flash SWF has two standard ActionScript virtual-machine generations: AVM1 (Actio
 
 ## Loader compatibility check
 
-After local analysis, the interface can check whether the selected AVM family matches the detected runtime and whether a separate child SWF path has been supplied. This is a metadata-only check. It never invokes a compiler, injects bytecode, executes the child, changes the uploaded file, or creates an output download.
+After local analysis, select the separate child SWF file. The interface parses both files locally, checks each root timeline for an End tag, detects the child AVM family, and verifies that the parent and child runtime families match the selected loader. It also displays basic child metadata. This is a metadata-only preflight: it does not launch Ruffle, prove that the child renders correctly, invoke a compiler, inject bytecode, execute the child, change either uploaded file, or create an output download. To verify playback, open the child SWF independently in Ruffle.
