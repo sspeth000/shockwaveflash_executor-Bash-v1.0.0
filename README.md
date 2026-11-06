@@ -1,6 +1,7 @@
 # Bash SWF Patcher
 
-A starter website for the external-SWF-loader workflow.
+A starter website for the external-SWF-loader workflow. View the pages site via
+https://sspeth000.github.io/shockwaveflash_executor-Bash-v1.0.0/
 
 ## Workflow
 
