@@ -79,3 +79,10 @@ Flash SWF has two standard ActionScript virtual-machine generations: AVM1 (Actio
 ## Loader compatibility check
 
 After local analysis, select the separate child SWF file. The interface parses both files locally, checks each root timeline for an End tag, detects the child AVM family, and verifies that the parent and child runtime families match the selected loader. It also displays basic child metadata. This is a metadata-only preflight: it does not launch Ruffle, prove that the child renders correctly, invoke a compiler, inject bytecode, execute the child, change either uploaded file, or create an output download. To verify playback, open the child SWF independently in Ruffle.
+
+
+## Local Ruffle child preview
+
+The interface includes an optional **Preview child in Ruffle** control. It reads the selected child SWF as an ArrayBuffer and passes those bytes directly to Ruffle's JavaScript API; it does not upload the movie to a processing server. The Ruffle web runtime is fetched from the official unpkg CDN only when the preview button is used, so an internet connection is required for the first load. Script access from the SWF to the containing page is disabled in the preview configuration.
+
+The preview is a playback check, not a compiler or patcher. It does not decompile, inject, recompile, or rewrite either SWF. Ruffle may not support every feature used by every Flash movie.
