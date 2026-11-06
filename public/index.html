@@ -1,12 +1,13 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0b0f17"><title>Bash SWF Patcher</title><link rel="stylesheet" href="./style.css"></head>
 <body><main class="shell">
-<header class="topbar"><a class="brand" href="./"><span class="brand-icon">B</span><span><small>BASH WORKSHOP</small><b>SWF Patcher</b></span></a><span class="version">STARTER BUILD · 0.1</span></header>
-<section class="intro"><p class="kicker">EXTERNAL LOADER WORKFLOW</p><h1>Patch the parent.<br><em>Load the panel separately.</em></h1><p class="lead">Upload the SWF you own or are authorized to modify. The embedded loader is designed to request <strong>TestPanel.swf</strong> at runtime.</p></section>
+<header class="topbar"><a class="brand" href="./"><span class="brand-icon">B</span><span><small>BASH WORKSHOP</small><b>SWF Patcher</b></span></a><span class="version">BROWSER BUILD · 0.2</span></header>
+<section class="intro"><p class="kicker">CLIENT-SIDE SWF WORKSPACE</p><h1>Inspect the parent.<br><em>Keep processing local.</em></h1><p class="lead">Choose a SWF you own or are authorized to modify. The file is read and analyzed locally in your browser. Nothing is uploaded to a processing server.</p></section>
 <section class="panel"><form id="patch-form">
 <label class="dropzone" id="dropzone" for="swf-file"><span class="upload-symbol">↑</span><strong id="file-name">Drop your parent SWF here</strong><span id="file-meta">or click to browse · SWF files · 100 MB max</span><input id="swf-file" name="swf" type="file" accept=".swf,application/x-shockwave-flash" required></label>
-<div class="field"><label for="child-url">External child SWF URL</label><input id="child-url" name="childUrl" type="text" value="./TestPanel.swf" spellcheck="false"><p>The parent loader requests this separate SWF. Host it where the patched parent can access it.</p></div>
-<div class="steps"><div><i>01</i><b>Upload parent</b><small>Original stays untouched</small></div><div><i>02</i><b>Insert loader</b><small>Compiled into parent</small></div><div><i>03</i><b>Compile</b><small>Build patched output</small></div><div><i>04</i><b>Load child</b><small>TestPanel stays external</small></div></div>
-<button id="submit-button" type="submit">Validate &amp; patch SWF <span>↗</span></button></form>
-<div class="status" id="status" role="status" aria-live="polite"><span class="status-light"></span><div><b>Waiting for a parent SWF</b><p>Select a file to begin. The original will never be overwritten.</p></div></div></section>
-<footer><span>BASH SWF PATCHER</span><span>For authorized project modification</span></footer></main><script src="./app.js"></script></body></html>
+<div class="field"><label for="child-url">External child SWF URL (planned loader setting)</label><input id="child-url" name="childUrl" type="text" value="./TestPanel.swf" spellcheck="false" disabled><p>The intended embedded loader will request this separate child SWF when runtime injection is implemented.</p></div>
+<div class="steps"><div><i>01</i><b>Read file</b><small>In this browser</small></div><div><i>02</i><b>Parse tags</b><small>FWS and CWS</small></div><div><i>03</i><b>Inspect bytecode</b><small>AVM1 / AVM2 tags</small></div><div><i>04</i><b>Patch output</b><small>Not enabled yet</small></div></div>
+<button id="submit-button" type="submit">Analyze SWF in browser <span>↗</span></button></form>
+<div class="status" id="status" role="status" aria-live="polite"><span class="status-light"></span><div><b>Waiting for a parent SWF</b><p>Select a file to inspect it locally. The original will never be overwritten.</p></div></div>
+<p class="notice">Important: SWF decompilation cannot reliably recreate the original editable FLA. This browser build analyzes SWF structure; it does not yet inject the loader or generate a patched SWF.</p></section>
+<footer><span>BASH SWF PATCHER</span><span>Browser-only · no upload endpoint</span></footer></main><script src="./app.js"></script></body></html>
