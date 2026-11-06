@@ -26,6 +26,36 @@ dropzone.addEventListener("drop",e=>{
   showFile(file);
 });
 
+function showLoaderChoice(runtime){
+  const panel=document.querySelector("#loader-choice");
+  const select=document.querySelector("#runtime-choice");
+  const link=document.querySelector("#loader-source");
+  const note=document.querySelector("#loader-choice-note");
+  if(!panel||!select||!link||!note)return;
+  panel.hidden=false;
+  if(runtime==="AVM1"||runtime==="AVM2"){
+    select.value=runtime;
+    select.disabled=true;
+    note.textContent=runtime+" was detected from the SWF's ActionScript markers. The matching source is selected.";
+  }else{
+    select.value="AVM1";
+    select.disabled=false;
+    note.textContent="No decisive runtime marker was found. Choose the runtime used by your project.";
+  }
+  updateLoaderLink();
+}
+function updateLoaderLink(){
+  const select=document.querySelector("#runtime-choice");
+  const link=document.querySelector("#loader-source");
+  if(!select||!link)return;
+  const avm=select.value;
+  link.href=avm==="AVM2"
+    ? "https://github.com/sspeth000/shockwaveflash_executor-Bash-v1.0.0/blob/main/loader/avm2/ExternalSwfLoader.as"
+    : "https://github.com/sspeth000/shockwaveflash_executor-Bash-v1.0.0/blob/main/loader/avm1/ExternalSwfLoader.as";
+  link.textContent="Open "+avm+" loader source";
+}
+document.querySelector("#runtime-choice")?.addEventListener("change",updateLoaderLink);
+
 function readBits(bytes,state,count){
   let value=0;
   for(let i=0;i<count;i++){
@@ -88,6 +118,11 @@ function parseTagStream(bytes,start=0,end=bytes.length,depth=0,stats){
     if(code===12)stats.doAction++;
     if(code===59)stats.doInitAction++;
     if(code===82)stats.doABC++;
+    if(code===69 && length>=4){
+      const flags=new DataView(payload.buffer,payload.byteOffset,4).getUint32(0,true);
+      stats.fileAttributesFlags=flags;
+      if(flags & 0x08)stats.as3Flag=true;
+    }
     if(code===39){
       stats.sprites++;
       if(length<4)throw new Error("A DefineSprite tag is too short.");
@@ -125,22 +160,28 @@ async function inspectSwf(file){
   const frameView=new DataView(body.buffer,body.byteOffset+rectBytes,4);
   const frameRate=frameView.getUint16(0,true)/256;
   const frameCount=frameView.getUint16(2,true);
-  const stats={total:0,counts:{},doAction:0,doInitAction:0,doABC:0,sprites:0,endTags:0};
+  const stats={total:0,counts:{},doAction:0,doInitAction:0,doABC:0,sprites:0,endTags:0,as3Flag:false,fileAttributesFlags:null};
   const tags=parseTagStream(body,rectBytes+4,body.length,0,stats);
   const rootCounts={};
   for(const tag of tags)rootCounts[tag.name]=(rootCounts[tag.name]||0)+1;
-  const fileAttributes=tags.find(tag=>tag.code===69);
-  let as3Flag=false;
-  if(fileAttributes&&fileAttributes.length>=4){
-    const payloadOffset=rectBytes+4;
-    // FileAttributes flags are inspected from the original tag stream by tag parser metadata in a future enhancement.
-  }
+  const avm2Detected=stats.doABC>0 || stats.as3Flag;
+  const avm1Detected=!avm2Detected && (stats.doAction>0 || stats.doInitAction>0);
+  const runtime=avm2Detected ? "AVM2" : avm1Detected ? "AVM1" : "unknown";
+  const runtimeReason=stats.doABC>0
+    ? "DoABC bytecode tag"
+    : stats.as3Flag
+      ? "FileAttributes AS3 flag"
+      : avm1Detected
+        ? "DoAction / DoInitAction tags"
+        : "no decisive ActionScript runtime marker";
   return {
     signature,version,declaredLength,frameRate,frameCount,
     width:(xMax-xMin)/20,height:(yMax-yMin)/20,
     rootTagCount:tags.length,totalTagCount:stats.total,
     doAction:stats.doAction,doInitAction:stats.doInitAction,doABC:stats.doABC,
-    sprites:stats.sprites,endTags:stats.endTags,counts:stats.counts,rootCounts
+    sprites:stats.sprites,endTags:stats.endTags,counts:stats.counts,rootCounts,
+    as3Flag:stats.as3Flag,fileAttributesFlags:stats.fileAttributesFlags,
+    runtime,runtimeReason
   };
 }
 form.addEventListener("submit",async e=>{
@@ -154,14 +195,11 @@ form.addEventListener("submit",async e=>{
   setStatus("Reading SWF locally","The file stays in this browser. Parsing the header and nested timelines.");
   try{
     const r=await inspectSwf(file);
-    const actionText=r.doABC
-      ? "AVM2 bytecode detected (DoABC)."
-      : (r.doAction||r.doInitAction)
-        ? "AVM1 ActionScript detected (DoAction / DoInitAction)."
-        : "No ActionScript bytecode tags detected.";
-    const details=r.signature+" · SWF "+r.version+" · "+r.width.toFixed(0)+" × "+r.height.toFixed(0)+" px · "+r.frameRate.toFixed(2)+" FPS · "+r.frameCount+" root frames · "+r.rootTagCount+" root tags · "+r.totalTagCount+" total tags including sprites. "+r.sprites+" sprites. "+actionText+" DoAction: "+r.doAction+" · DoInitAction: "+r.doInitAction+" · DoABC: "+r.doABC+".";
+    const actionText=r.runtime==="AVM2" ? "AVM2 detected." : r.runtime==="AVM1" ? "AVM1 detected." : "Runtime is ambiguous; choose a loader manually.";
+    const details=r.signature+" · SWF "+r.version+" · "+r.width.toFixed(0)+" × "+r.height.toFixed(0)+" px · "+r.frameRate.toFixed(2)+" FPS · "+r.frameCount+" root frames · "+r.rootTagCount+" root tags · "+r.totalTagCount+" total tags including sprites. "+r.sprites+" sprites. "+actionText+" Evidence: "+r.runtimeReason+". DoAction: "+r.doAction+" · DoInitAction: "+r.doInitAction+" · DoABC: "+r.doABC+".";
     const top=Object.entries(r.rootCounts).slice(0,7).map(([name,count])=>name+": "+count).join(", ");
-    setStatus("SWF analyzed successfully",details+" Root tags: "+top+". Loader injection and output generation are not enabled yet; no output file was fabricated.","good");
+    showLoaderChoice(r.runtime);
+    setStatus("SWF analyzed successfully",details+" Root tags: "+top+". The matching loader source is selected automatically when detection is conclusive. Injection and output generation are not enabled yet.","good");
   }catch(error){
     setStatus("Could not analyze SWF",error.message||"Unknown parsing error.","error");
   }finally{
