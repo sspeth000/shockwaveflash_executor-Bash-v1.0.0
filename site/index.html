@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#10131c">
+  <title>Bash SWF Patcher</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="./"><span class="brand-mark">B</span><span>Bash<span class="muted">SWF</span></span></a>
+      <span class="version">PATCHER · PREVIEW</span>
+    </header>
+
+    <section class="intro">
+      <p class="eyebrow">SHOCKWAVE FLASH TOOLKIT</p>
+      <h1>Patch a SWF.<br><span>Keep the original.</span></h1>
+      <p class="lede">Upload a SWF you own or are authorized to modify. The intended build flow adds the Bash external-loader entry point and exports a separate patched copy.</p>
+    </section>
+
+    <section class="workspace" aria-labelledby="upload-title">
+      <div class="section-heading">
+        <div><p class="eyebrow">01 / SOURCE FILE</p><h2 id="upload-title">Choose your SWF</h2></div>
+        <span class="step-pill">INPUT</span>
+      </div>
+      <label class="dropzone" id="dropzone" for="swf-file">
+        <input id="swf-file" type="file" accept=".swf,application/x-shockwave-flash">
+        <span class="upload-icon" aria-hidden="true">↑</span>
+        <strong>Drop a .swf file here</strong>
+        <span class="muted">or <span class="browse">browse files</span></span>
+        <small>SWF files only · 100 MB maximum for this preview</small>
+      </label>
+      <div class="file-row hidden" id="file-row">
+        <div class="file-icon">SWF</div>
+        <div class="file-meta"><strong id="file-name"></strong><small id="file-size"></small></div>
+        <button class="text-button" id="remove-file" type="button">Remove</button>
+      </div>
+
+      <div class="pipeline">
+        <p class="eyebrow">02 / BUILD PIPELINE</p>
+        <ol class="steps">
+          <li><span>1</span><div><strong>Decompile</strong><small>Inspect the SWF structure and scripts</small></div><em>Backend pending</em></li>
+          <li><span>2</span><div><strong>Add external loader</strong><small>Insert the approved Bash loader entry point</small></div><em>Backend pending</em></li>
+          <li><span>3</span><div><strong>Compile</strong><small>Build a new SWF and validate the output</small></div><em>Backend pending</em></li>
+          <li><span>4</span><div><strong>Export patched file</strong><small><code>swfname[execinstalled].swf</code></small></div><em>Backend pending</em></li>
+        </ol>
+      </div>
+
+      <div class="notice" role="note"><strong>Prototype status</strong><p>This website shell currently validates and previews the selected file. The decompiler/compiler service is not connected yet, so it will not claim to patch or export a SWF until that backend is installed.</p></div>
+      <button class="primary-button" id="patch-button" type="button" disabled>Prepare patched SWF <span>→</span></button>
+      <p class="status" id="status" aria-live="polite">Select a SWF to begin.</p>
+    </section>
+
+    <footer><span>Bash SWF Patcher</span><span>Original files are never overwritten.</span></footer>
+  </main>
+  <script src="./app.js"></script>
+</body>
+</html>
