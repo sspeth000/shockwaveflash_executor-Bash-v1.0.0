@@ -57,6 +57,15 @@ addChild(new loader.avm2.ExternalSwfLoader("TestPanel-AVM2.swf"));
 
 The child SWF must be hosted beside the parent SWF (or at the URL supplied to the loader). Browser and player security rules may restrict cross-origin loading; a suitable cross-domain policy may be required.
 
+## Building the separate Test Panel SWFs
+
+The repository now includes a GitHub Actions build workflow at `.github/workflows/build-test-panels.yml`. It compiles the AVM1 panel with MTASC and the AVM2 panel with the Apache Flex SDK. A successful run uploads both SWFs as a workflow artifact and publishes the compiled files at the repository root:
+
+- `TestPanel-AVM1.swf`
+- `TestPanel-AVM2.swf`
+
+The workflow runs when the TestPanel sources or its workflow file change, and can also be started manually from the repository's Actions tab. The generated binaries are not checked into the repository until that workflow completes successfully.
+
 ## Runtime detection
 
 The browser parser checks the SWF `FileAttributes` AS3 flag and `DoABC` tags for AVM2. If those are absent, it checks `DoAction` and `DoInitAction` tags, including nested sprite timelines, for AVM1. It then selects the matching loader source in the interface. If no decisive marker is present, the runtime selector remains editable so the user can choose manually.
