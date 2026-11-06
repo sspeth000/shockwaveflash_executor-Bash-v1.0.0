@@ -93,7 +93,7 @@ async function inspectSwf(file){
     if(code===0){ended=true;break;}
     if(tags.length>1000000)throw new Error("The file contains an unreasonable number of SWF tags.");
   }
-  const names=new Map([[0,"End"],[1,"ShowFrame"],[9,"SetBackgroundColor"],[12,"DoAction"],[26,"PlaceObject2"],[28,"RemoveObject2"],[39,"DefineSprite"],[43,"FrameLabel"],[56,"ExportAssets"],[69,"FileAttributes"],[72,"DoABC"],[76,"SymbolClass"],[82,"DoABCDefine"],[87,"DefineBinaryData"],[90,"Define出来?"]]);
+  const names=new Map([[0,"End"],[1,"ShowFrame"],[9,"SetBackgroundColor"],[12,"DoAction"],[26,"PlaceObject2"],[28,"RemoveObject2"],[39,"DefineSprite"],[43,"FrameLabel"],[56,"ExportAssets"],[69,"FileAttributes"],[72,"DoABC"],[76,"SymbolClass"],[82,"DoABCDefine"],[87,"DefineBinaryData"]]);
   const counts={};
   for(const tag of tags){const name=names.get(tag.code)||("Tag "+tag.code);counts[name]=(counts[name]||0)+1;}
   return {
