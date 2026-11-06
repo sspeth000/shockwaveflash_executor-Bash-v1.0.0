@@ -151,6 +151,10 @@ function parseTagStream(bytes,start=0,end=bytes.length,depth=0,stats){
 }
 async function inspectSwf(file){
   const buffer=await file.arrayBuffer();
+  if(globalThis.BashSwfToolkitReady)await globalThis.BashSwfToolkitReady;
+  if(typeof globalThis.BashSwfToolkitInspect==="function"){
+    return globalThis.BashSwfToolkitInspect(new Uint8Array(buffer));
+  }
   if(buffer.byteLength<8)throw new Error("The file is too small to contain a SWF header.");
   const bytes=new Uint8Array(buffer);
   const signature=String.fromCharCode(...bytes.subarray(0,3));
