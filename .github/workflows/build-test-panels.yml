@@ -1,0 +1,77 @@
+name: Build Test Panel SWFs
+
+on:
+  push:
+    paths:
+      - "TestPanel/**"
+      - ".github/workflows/build-test-panels.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install compilers and Java
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mtasc curl tar
+      - name: Set up Java for Apache Flex
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "8"
+
+      - name: Install Apache Flex SDK
+        run: |
+          curl --fail --location --retry 3 \
+            https://archive.apache.org/dist/flex/4.16.1/binaries/apache-flex-sdk-4.16.1-bin.tar.gz \
+            --output /tmp/apache-flex-sdk.tar.gz
+          mkdir -p "$RUNNER_TEMP/flex"
+          tar -xzf /tmp/apache-flex-sdk.tar.gz -C "$RUNNER_TEMP/flex"
+          echo "FLEX_HOME=$RUNNER_TEMP/flex" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/flex/bin" >> "$GITHUB_PATH"
+
+      - name: Compile AVM1 / ActionScript 2 panel
+        run: |
+          mtasc -main -header 340:210:30:111827 \
+            -swf TestPanel-AVM1.swf TestPanel/avm1/TestPanel.as
+          test -s TestPanel-AVM1.swf
+          test "$(head -c 3 TestPanel-AVM1.swf)" = "FWS"
+
+      - name: Compile AVM2 / ActionScript 3 panel
+        run: |
+          mxmlc -static-link-runtime-shared-libraries=true \
+            -target-player=11.1.0 \
+            -output=TestPanel-AVM2.swf \
+            TestPanel/avm2/TestPanel.as
+          test -s TestPanel-AVM2.swf
+          test "$(head -c 3 TestPanel-AVM2.swf)" = "FWS"
+
+      - name: Upload compiled SWFs
+        uses: actions/upload-artifact@v4
+        with:
+          name: bash-test-panels
+          path: |
+            TestPanel-AVM1.swf
+            TestPanel-AVM2.swf
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish SWFs to repository root
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add TestPanel-AVM1.swf TestPanel-AVM2.swf
+          if git diff --cached --quiet; then
+            echo "Compiled SWFs are already up to date."
+          else
+            git commit -m "Build AVM1 and AVM2 test panel SWFs"
+            git push
+          fi
