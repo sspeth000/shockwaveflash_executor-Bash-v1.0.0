@@ -8,9 +8,10 @@ https://sspeth000.github.io/shockwaveflash_executor-Bash-v1.0.0/
 
 - Reads the selected SWF with the browser File API. The file is not sent to a server.
 - Parses the SWF header, frame information, and tag stream.
-- Supports uncompressed FWS and zlib-compressed CWS files in browsers with the Compression Streams API.
-- Detects common ActionScript bytecode tags, including DoABC and DoAction.
-- Rejects unsupported LZMA-compressed ZWS files with a clear message.
+- Supports FWS, zlib-compressed CWS, and LZMA-compressed ZWS files in the browser.
+- Uses a browser-safe subset of `swf-toolkit` for SWF tag parsing, nested sprite inspection, and AVM1/AVM2 marker detection.
+- Uses the browser Compression Streams API for CWS and the toolkit's pure TypeScript LZMA decoder for ZWS.
+- Keeps the Node-only filesystem and zlib wrapper out of the static site.
 
 ## Current limitation
 
@@ -87,3 +88,12 @@ Actual bytecode injection is gated behind an explicit in-browser compiler integr
 - `injectIntoParent({ parentFile, parentAnalysis, runtime, bytecode, childUrl })`, returning a non-empty `Blob` containing a validated patched SWF.
 
 The page does not currently include that compiler/adapter, so the button will stop after preflight and explain the missing requirement. It will not treat ActionScript source as bytecode, fabricate an output, or modify the uploaded parent. When a verified integration is added, successful output uses `originalname[execinstalled].swf`.
+
+
+## swf-toolkit browser integration
+
+A focused, browser-safe subset of [recepasan/swf-toolkit](https://github.com/recepasan/swf-toolkit) is vendored under `public/vendor/swf-toolkit/` with its MIT license. The integration uses the upstream binary reader, tag parser, ABC tag models, and pure TypeScript LZMA decoder. It deliberately does not import the package's Node-only `node:fs`, `node:path`, or `node:zlib` SWF wrapper.
+
+The browser entry point is `public/vendor/swf-toolkit/src/browser-entry.ts`. The TypeScript build emits static ES modules to `public/vendor/swf-toolkit/dist/`. A GitHub Actions workflow builds and commits those static modules when the vendored source or build configuration changes. The page loads only local files at runtime. If the generated modules are not yet available, the existing in-page analyzer remains as a fallback.
+
+This is a read-only integration for inspecting files you own or are authorized to inspect. It does not compile or inject ActionScript, execute arbitrary code, modify the uploaded SWF, or fabricate a patched download.
