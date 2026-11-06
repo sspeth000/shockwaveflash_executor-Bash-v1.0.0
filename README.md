@@ -75,3 +75,15 @@ This is runtime detection and source selection only. It does not inject or compi
 - `server/`: legacy prototype; not used by the browser interface
 
 Flash SWF has two standard ActionScript virtual-machine generations: AVM1 (ActionScript 1–2) and AVM2 (ActionScript 3). The parent and child should use matching generations. The ActionScript files in this repository are source files, not compiled SWFs; they still need to be compiled with their matching toolchains and tested in the intended player, including Ruffle if that is the target.
+
+
+## Injection attempt workflow
+
+After local analysis, the interface exposes **Attempt loader injection**. The button performs a local preflight: it checks the selected runtime against detected markers, validates the child Test Panel path, rejects unsupported ZWS input, and confirms the parent tag stream has an End tag.
+
+Actual bytecode injection is gated behind an explicit in-browser compiler integration named `BashSwfCompiler`. That integration must provide:
+
+- `compileLoader({ runtime, sourcePath, childUrl })`, returning a `Uint8Array` of compiled runtime bytecode.
+- `injectIntoParent({ parentFile, parentAnalysis, runtime, bytecode, childUrl })`, returning a non-empty `Blob` containing a validated patched SWF.
+
+The page does not currently include that compiler/adapter, so the button will stop after preflight and explain the missing requirement. It will not treat ActionScript source as bytecode, fabricate an output, or modify the uploaded parent. When a verified integration is added, successful output uses `originalname[execinstalled].swf`.
