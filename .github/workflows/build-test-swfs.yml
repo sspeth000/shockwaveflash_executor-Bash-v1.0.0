@@ -1,0 +1,39 @@
+name: Build external SWF test
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "test-swf/**"
+      - ".github/workflows/build-test-swfs.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Download Apache Royale
+        run: |
+          curl -fL --retry 3 "https://archive.apache.org/dist/royale/0.9.12/apache-royale-0.9.12-bin-js-swf.tar.gz" -o royale.tar.gz
+          tar -xzf royale.tar.gz
+          MXMLC="$(find "$PWD" -type f -path "*/bin/mxmlc" | head -n 1)"
+          test -n "$MXMLC"
+          chmod +x "$MXMLC"
+          echo "MXMLC=$MXMLC" >> "$GITHUB_ENV"
+      - name: Compile TestPanel.swf and Main.swf
+        run: |
+          mkdir -p test-swf/build
+          "$MXMLC" -source-path+=test-swf/src -output=test-swf/build/TestPanel.swf test-swf/src/TestPanel.as
+          "$MXMLC" -source-path+=test-swf/src -output=test-swf/build/Main.swf test-swf/src/Main.as
+          test -s test-swf/build/TestPanel.swf
+          test -s test-swf/build/Main.swf
+      - name: Upload compiled SWFs
+        uses: actions/upload-artifact@v4
+        with:
+          name: bash-external-swf-test
+          path: test-swf/build/*.swf
+          if-no-files-found: error
