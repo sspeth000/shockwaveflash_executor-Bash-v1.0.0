@@ -30,7 +30,8 @@ async function inflateZlib(data: Uint8Array): Promise<Uint8Array> {
   if (typeof DecompressionStream === "undefined") {
     throw new Error("This browser does not provide the Decompression Streams API required for CWS files.");
   }
-  const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate"));
+  const ownedBuffer = data.slice().buffer as ArrayBuffer;
+  const stream = new Blob([ownedBuffer]).stream().pipeThrough(new DecompressionStream("deflate"));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
