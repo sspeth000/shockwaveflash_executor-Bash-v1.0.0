@@ -9,6 +9,11 @@ const injectNote=document.querySelector("#inject-note");
 const childUrlInput=document.querySelector("#child-url");
 const childFileInput=document.querySelector("#child-swf-file");
 const childDropzone=document.querySelector("#child-dropzone");
+const previewButton=document.querySelector("#preview-child-button");
+const previewStatus=document.querySelector("#preview-status");
+const previewContainer=document.querySelector("#ruffle-container");
+let ruffleScriptPromise=null;
+let rufflePlayer=null;
 let lastParentFile=null;
 let lastAnalysis=null;
 let lastChildFile=null;
@@ -33,6 +38,9 @@ fileInput.addEventListener("change",()=>showFile(fileInput.files[0]));
 function showChildFile(file){
   lastChildFile=null;
   lastChildAnalysis=null;
+  previewButton.disabled=!file;
+  if(previewContainer)previewContainer.replaceChildren();
+  if(previewStatus)previewStatus.textContent=file ? "Child selected. Preview runs locally in this page after the Ruffle web runtime loads." : "Choose a child SWF to enable preview.";
   if(!file)return;
   document.querySelector("#child-file-name").textContent=file.name;
   document.querySelector("#child-file-meta").textContent=(file.size/1048576).toFixed(2)+" MB · selected; analyze parent and run compatibility check";
@@ -223,6 +231,66 @@ async function inspectSwf(file){
     runtime,runtimeReason
   };
 }
+function loadRuffleRuntime(){
+  if(window.RufflePlayer?.newest)return Promise.resolve();
+  if(ruffleScriptPromise)return ruffleScriptPromise;
+  ruffleScriptPromise=new Promise((resolve,reject)=>{
+    const script=document.createElement("script");
+    script.src="https://unpkg.com/@ruffle-rs/ruffle";
+    script.async=true;
+    script.onload=()=>window.RufflePlayer?.newest
+      ? resolve()
+      : reject(new Error("Ruffle loaded, but its player API was not found."));
+    script.onerror=()=>reject(new Error("Could not load the Ruffle web runtime. Check your internet connection and try again."));
+    document.head.appendChild(script);
+  });
+  return ruffleScriptPromise;
+}
+
+previewButton?.addEventListener("click",async()=>{
+  const file=childFileInput.files[0];
+  if(!file){
+    previewStatus.textContent="Choose a child SWF first.";
+    return;
+  }
+  if(!file.name.toLowerCase().endsWith(".swf")||file.size>100*1024*1024){
+    previewStatus.textContent="Choose a .swf file under 100 MB.";
+    return;
+  }
+  previewButton.disabled=true;
+  previewButton.textContent="Starting Ruffle…";
+  previewStatus.textContent="Loading the Ruffle web runtime. Your SWF bytes stay in this browser.";
+  try{
+    await loadRuffleRuntime();
+    window.RufflePlayer.config={
+      ...(window.RufflePlayer.config||{}),
+      autoplay:"auto",
+      allowScriptAccess:false,
+      logLevel:"error"
+    };
+    if(!rufflePlayer){
+      rufflePlayer=window.RufflePlayer.newest().createPlayer();
+      rufflePlayer.style.width="100%";
+      rufflePlayer.style.height="min(70vh, 560px)";
+      rufflePlayer.style.display="block";
+      previewContainer.replaceChildren(rufflePlayer);
+    }
+    previewContainer.hidden=false;
+    await rufflePlayer.ruffle().load({
+      data:await file.arrayBuffer(),
+      swfFileName:file.name,
+      allowScriptAccess:false,
+      autoplay:"auto"
+    });
+    previewStatus.textContent="Ruffle loaded "+file.name+". Playback is running inside the preview below.";
+  }catch(error){
+    previewStatus.textContent=error.message||"Ruffle could not load this SWF.";
+  }finally{
+    previewButton.disabled=false;
+    previewButton.textContent="Preview child in Ruffle";
+  }
+});
+
 form.addEventListener("submit",async e=>{
   e.preventDefault();
   const file=fileInput.files[0];
