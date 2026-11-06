@@ -11,6 +11,12 @@
 <button id="submit-button" type="submit">Analyze SWF in browser <span>↗</span></button>
 <div class="inject-actions" id="inject-actions" hidden><button id="inject-button" type="button">Check parent + child compatibility <span>↗</span></button><p id="inject-note">Analyze the parent, select its separate child SWF, then run the compatibility check.</p></div></form>
 <div class="status" id="status" role="status" aria-live="polite"><span class="status-light"></span><div><b>Waiting for a parent SWF</b><p>Select a file to inspect it locally. The original will never be overwritten.</p></div></div>
+<section class="ruffle-preview" aria-labelledby="ruffle-heading">
+  <div class="preview-heading"><div><b id="ruffle-heading">Child SWF preview</b><p>Play the selected child movie locally with Ruffle.</p></div></div>
+  <button id="preview-child-button" type="button" disabled>Preview child in Ruffle</button>
+  <p id="preview-status" class="preview-status" role="status" aria-live="polite">Choose a child SWF to enable preview.</p>
+  <div id="ruffle-container" class="ruffle-container" hidden></div>
+</section>
 <div class="loader-choice" id="loader-choice" hidden>
   <div><b>Selected loader runtime</b><p id="loader-choice-note">Analyze a SWF to select its matching loader.</p></div>
   <div class="loader-choice-controls">
@@ -19,5 +25,5 @@
     <a id="loader-source" href="https://github.com/sspeth000/shockwaveflash_executor-Bash-v1.0.0/tree/main/loader">Open loader source</a>
   </div>
 </div>
-<p class="notice">This build is a read-only SWF analyzer. It inspects the parent and child SWFs locally and compares their AVM runtimes. It does not launch Ruffle, compile ActionScript, inject code, modify either file, or create a patched download.</p></section>
+<p class="notice">This build is a read-only SWF analyzer with an optional Ruffle preview for the selected child SWF. SWF bytes are read locally; the Ruffle web runtime is loaded from its official CDN on demand. It does not compile ActionScript, inject code, modify either file, or create a patched download.</p></section>
 <footer><span>BASH SWF PATCHER</span><span>Browser-only · no upload endpoint</span></footer></main><script src="./public/app.js"></script><script type="module" src="./public/swf-toolkit-bootstrap.js"></script></body></html>
