@@ -3,6 +3,12 @@ const fileInput=document.querySelector("#swf-file");
 const dropzone=document.querySelector("#dropzone");
 const statusBox=document.querySelector("#status");
 const submitButton=document.querySelector("#submit-button");
+const injectActions=document.querySelector("#inject-actions");
+const injectButton=document.querySelector("#inject-button");
+const injectNote=document.querySelector("#inject-note");
+const childUrlInput=document.querySelector("#child-url");
+let lastParentFile=null;
+let lastAnalysis=null;
 
 function setStatus(title,detail,type=""){
   statusBox.className="status "+type;
@@ -42,6 +48,7 @@ function showLoaderChoice(runtime){
     select.disabled=false;
     note.textContent="No decisive runtime marker was found. Choose the runtime used by your project.";
   }
+  childUrlInput.value=runtime==="AVM2" ? "./TestPanel-AVM2.swf" : "./TestPanel-AVM1.swf";
   updateLoaderLink();
 }
 function updateLoaderLink(){
@@ -195,6 +202,10 @@ form.addEventListener("submit",async e=>{
   setStatus("Reading SWF locally","The file stays in this browser. Parsing the header and nested timelines.");
   try{
     const r=await inspectSwf(file);
+    lastParentFile=file;
+    lastAnalysis=r;
+    injectActions.hidden=false;
+    injectNote.textContent="Ready for a local preflight. No changes have been made to the selected SWF.";
     const actionText=r.runtime==="AVM2" ? "AVM2 detected." : r.runtime==="AVM1" ? "AVM1 detected." : "Runtime is ambiguous; choose a loader manually.";
     const details=r.signature+" · SWF "+r.version+" · "+r.width.toFixed(0)+" × "+r.height.toFixed(0)+" px · "+r.frameRate.toFixed(2)+" FPS · "+r.frameCount+" root frames · "+r.rootTagCount+" root tags · "+r.totalTagCount+" total tags including sprites. "+r.sprites+" sprites. "+actionText+" Evidence: "+r.runtimeReason+". DoAction: "+r.doAction+" · DoInitAction: "+r.doInitAction+" · DoABC: "+r.doABC+".";
     const top=Object.entries(r.rootCounts).slice(0,7).map(([name,count])=>name+": "+count).join(", ");
@@ -205,5 +216,92 @@ form.addEventListener("submit",async e=>{
   }finally{
     submitButton.disabled=false;
     submitButton.innerHTML="Analyze SWF in browser <span>↗</span>";
+  }
+});
+
+
+/*
+ * Injection preflight.
+ * This intentionally does not fabricate bytecode. The parent loader .as
+ * sources must be compiled for the selected AVM before a real tag injection
+ * can be performed. A future compiler integration can be connected here.
+ */
+injectButton.addEventListener("click",async()=>{
+  if(!lastParentFile || !lastAnalysis){
+    setStatus("Analyze a parent first","Select and analyze the parent SWF before attempting injection.","error");
+    return;
+  }
+
+  const runtime=document.querySelector("#runtime-choice").value;
+  const detected=lastAnalysis.runtime;
+  const childUrl=childUrlInput.value.trim();
+  const loaderPath=runtime==="AVM2"
+    ? "loader/avm2/ExternalSwfLoader.as"
+    : "loader/avm1/ExternalSwfLoader.as";
+  const childName=runtime==="AVM2"
+    ? "TestPanel-AVM2.swf"
+    : "TestPanel-AVM1.swf";
+
+  injectButton.disabled=true;
+  injectButton.textContent="Checking injection requirements…";
+  setStatus("Preparing injection attempt","Checking runtime compatibility, parent structure, and loader prerequisites.");
+
+  try{
+    if(detected!=="unknown" && detected!==runtime){
+      throw new Error("Runtime mismatch: the parent was detected as "+detected+", but "+runtime+" was selected. The parent was not modified.");
+    }
+    if(!childUrl){
+      throw new Error("Enter the URL or relative path of the separate "+childName+" child SWF.");
+    }
+    if(lastAnalysis.signature==="ZWS"){
+      throw new Error("ZWS/LZMA parents are not supported by this browser build. The parent was not modified.");
+    }
+    if(!lastAnalysis.endTags){
+      throw new Error("The parent timeline has no recognized End tag. Safe tag insertion cannot be attempted.");
+    }
+
+    const compiler=globalThis.BashSwfCompiler;
+    if(!compiler || typeof compiler.compileLoader!=="function"){
+      injectNote.textContent="Preflight stopped: no in-browser ActionScript compiler is connected yet.";
+      throw new Error(
+        "Preflight passed for "+runtime+" and selected "+loaderPath+
+        ", with child "+childUrl+". Injection stopped because this page has no compatible in-browser ActionScript compiler/bytecode adapter. The .as source cannot be inserted directly. No bytes were changed and no output file was created."
+      );
+    }
+
+    // Compiler integrations must explicitly return a bytecode payload and a
+    // tag-injection adapter. Never accept source text as compiled bytecode.
+    const compiled=await compiler.compileLoader({runtime,sourcePath:loaderPath,childUrl});
+    if(!compiled || !(compiled.bytecode instanceof Uint8Array) || typeof compiler.injectIntoParent!=="function"){
+      throw new Error("The compiler integration did not return a valid bytecode payload and parent injection adapter. No output was created.");
+    }
+
+    const output=await compiler.injectIntoParent({
+      parentFile:lastParentFile,
+      parentAnalysis:lastAnalysis,
+      runtime,
+      bytecode:compiled.bytecode,
+      childUrl
+    });
+    if(!(output instanceof Blob) || output.size===0){
+      throw new Error("The injection adapter did not return a non-empty SWF Blob. No download was created.");
+    }
+
+    const outputName=lastParentFile.name.replace(/\.swf$/i,"")+"[execinstalled].swf";
+    const objectUrl=URL.createObjectURL(output);
+    const anchor=document.createElement("a");
+    anchor.href=objectUrl;
+    anchor.download=outputName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(()=>URL.revokeObjectURL(objectUrl),1000);
+    injectNote.textContent="Injection adapter returned a SWF. Download requested: "+outputName;
+    setStatus("Injection adapter completed","The compiler integration returned a patched SWF download. Test it in the target player before relying on it.","good");
+  }catch(error){
+    setStatus("Injection attempt stopped",error.message||"Unknown injection error.","error");
+  }finally{
+    injectButton.disabled=false;
+    injectButton.innerHTML="Attempt loader injection <span>↗</span>";
   }
 });
