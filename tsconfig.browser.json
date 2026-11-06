@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    "rootDir": "public/vendor/swf-toolkit/src",
+    "outDir": "public/vendor/swf-toolkit/dist",
+    "strict": false,
+    "skipLibCheck": true,
+    "declaration": false,
+    "sourceMap": false,
+    "noEmitOnError": false,
+    "useDefineForClassFields": true
+  },
+  "include": ["public/vendor/swf-toolkit/src/browser-entry.ts"]
+}
