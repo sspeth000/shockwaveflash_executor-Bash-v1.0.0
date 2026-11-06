@@ -9,9 +9,8 @@ package {
 
     [SWF(width="800", height="450", frameRate="30", backgroundColor="#151923")]
     public class Main extends Sprite {
-        // Replace this URL with the raw URL of the separately hosted TestPanel.swf.
-        private static const TEST_SWF_URL:String =
-            "https://YOUR-USERNAME.github.io/YOUR-REPOSITORY/TestPanel.swf";
+        // Keep Main.swf and TestPanel.swf beside each other when hosting.
+        private static const TEST_SWF_URL:String = "TestPanel.swf";
 
         private var loader:Loader;
 
