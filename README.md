@@ -1,38 +1,29 @@
 # Bash SWF Patcher
 
-A starter website for the external-SWF-loader workflow. View the pages site via
+A browser-only SWF inspection workspace hosted as a static site:
+
 https://sspeth000.github.io/shockwaveflash_executor-Bash-v1.0.0/
 
-## Workflow
+## Browser-only behavior
 
-1. Upload the parent SWF you own or are authorized to modify.
-2. The processing service validates the SWF.
-3. A future build adapter will decompile supported AS3 projects, integrate the loader, and compile the parent again.
-4. The result will be named `originalname[execinstalled].swf`.
-5. When the patched parent runs in Ruffle, its embedded loader requests the separate `TestPanel.swf`.
+- Reads the selected SWF with the browser File API. The file is not sent to a server.
+- Parses the SWF header, frame information, and tag stream.
+- Supports uncompressed FWS and zlib-compressed CWS files in browsers with the Compression Streams API.
+- Detects common ActionScript bytecode tags, including DoABC and DoAction.
+- Rejects unsupported LZMA-compressed ZWS files with a clear message.
 
-There is **no `main.swf`**. The uploaded SWF is the parent. `TestPanel.swf` is an external child SWF.
+## Current limitation
 
-## Run locally
+This is currently a **client-side analyzer**, not yet a working loader injector. It does not reconstruct an original editable FLA, modify AVM1/AVM2 bytecode, or produce a patched SWF.
 
-Requires Python 3.10+.
+A real browser-only injector still needs a compiled AS3 bootstrap payload and a verified method to register and execute it in supported parent SWFs. Arbitrary SWFs cannot be guaranteed to round-trip through decompilation and recompilation. The output name planned for a successful patch is `originalname[execinstalled].swf`.
 
-```bash
-pip install -r requirements.txt
-python server/app.py
-```
+There is no need to run Flask or install Python for the static browser analyzer.
 
-Open http://127.0.0.1:8000.
+## Project files
 
-## Current status
-
-The website UI and upload validation endpoint are the starter implementation. The endpoint deliberately does not return a falsely labelled copy of the original SWF. The decompile/recompile adapter is not implemented yet.
-
-Arbitrary SWF decompilation is not a guaranteed round trip: decompilers reconstruct approximate source, and projects may depend on libraries, compiler settings, assets, and APIs that cannot be recovered automatically. The next step is to target a known-good AS3 SWF and wire in FFDec plus an AS3 compiler.
-
-## Files
-
-- `public/`: browser interface
-- `server/app.py`: local upload/validation server
-- `TestPanel/TestPanel.as`: source for the separate draggable test panel
-- `loader/ExternalSwfLoader.as`: AS3 loader source intended to be compiled into the parent project
+- `index.html`: GitHub Pages entry point
+- `public/`: browser interface, styling, and SWF parser
+- `loader/ExternalSwfLoader.as`: AS3 loader source reference
+- `TestPanel/TestPanel.as`: separate draggable child-panel source reference
+- `server/`: legacy prototype; not used by the browser interface
