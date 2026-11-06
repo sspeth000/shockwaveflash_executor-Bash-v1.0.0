@@ -91,7 +91,7 @@ const TAG_NAMES={
   60:"DefineVideoStream",61:"VideoFrame",62:"DefineFontInfo2",69:"FileAttributes",
   70:"PlaceObject3",71:"ImportAssets2",73:"DefineFontAlignZones",
   74:"CSMTextSettings",75:"DefineFont3",76:"SymbolClass",77:"Metadata",
-  78:"DefineScalingGrid",82:"DoABC",83:"DefineShape4",87:"DefineBinaryData",
+  78:"DefineScalingGrid",72:"DoABCDefine",82:"DoABC",83:"DefineShape4",87:"DefineBinaryData",
   88:"DefineFontName",89:"StartSound2",90:"DefineBitsJPEG4",91:"DefineFont4"
 };
 function parseTagStream(bytes,start=0,end=bytes.length,depth=0,stats){
@@ -117,7 +117,7 @@ function parseTagStream(bytes,start=0,end=bytes.length,depth=0,stats){
     stats.counts[name]=(stats.counts[name]||0)+1;
     if(code===12)stats.doAction++;
     if(code===59)stats.doInitAction++;
-    if(code===82)stats.doABC++;
+    if(code===72 || code===82)stats.doABC++;
     if(code===69 && length>=4){
       const flags=new DataView(payload.buffer,payload.byteOffset,4).getUint32(0,true);
       stats.fileAttributesFlags=flags;
@@ -168,7 +168,7 @@ async function inspectSwf(file){
   const avm1Detected=!avm2Detected && (stats.doAction>0 || stats.doInitAction>0);
   const runtime=avm2Detected ? "AVM2" : avm1Detected ? "AVM1" : "unknown";
   const runtimeReason=stats.doABC>0
-    ? "DoABC bytecode tag"
+    ? "DoABC / DoABCDefine bytecode tag"
     : stats.as3Flag
       ? "FileAttributes AS3 flag"
       : avm1Detected
