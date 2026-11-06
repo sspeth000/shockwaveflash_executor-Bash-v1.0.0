@@ -17,6 +17,10 @@ function setStatus(title,detail,type=""){
 }
 function showFile(file){
   if(!file)return;
+  lastParentFile=null;
+  lastAnalysis=null;
+  injectActions.hidden=true;
+  injectNote.textContent="Analyze the newly selected parent before attempting injection.";
   document.querySelector("#file-name").textContent=file.name;
   document.querySelector("#file-meta").textContent=(file.size/1048576).toFixed(2)+" MB · selected";
 }
