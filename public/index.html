@@ -9,5 +9,13 @@
 <div class="steps"><div><i>01</i><b>Read file</b><small>In this browser</small></div><div><i>02</i><b>Parse tags</b><small>FWS and CWS</small></div><div><i>03</i><b>Inspect bytecode</b><small>AVM1 / AVM2 tags</small></div><div><i>04</i><b>Patch output</b><small>Not enabled yet</small></div></div>
 <button id="submit-button" type="submit">Analyze SWF in browser <span>↗</span></button></form>
 <div class="status" id="status" role="status" aria-live="polite"><span class="status-light"></span><div><b>Waiting for a parent SWF</b><p>Select a file to inspect it locally. The original will never be overwritten.</p></div></div>
+<div class="loader-choice" id="loader-choice" hidden>
+  <div><b>Selected loader runtime</b><p id="loader-choice-note">Analyze a SWF to select its matching loader.</p></div>
+  <div class="loader-choice-controls">
+    <label for="runtime-choice">Runtime</label>
+    <select id="runtime-choice"><option value="AVM1">AVM1 · ActionScript 1/2</option><option value="AVM2">AVM2 · ActionScript 3</option></select>
+    <a id="loader-source" href="https://github.com/sspeth000/shockwaveflash_executor-Bash-v1.0.0/tree/main/loader">Open loader source</a>
+  </div>
+</div>
 <p class="notice">Important: SWF decompilation cannot reliably recreate the original editable FLA. This browser build analyzes SWF structure; it does not yet inject the loader or generate a patched SWF.</p></section>
 <footer><span>BASH SWF PATCHER</span><span>Browser-only · no upload endpoint</span></footer></main><script src="./app.js"></script></body></html>
