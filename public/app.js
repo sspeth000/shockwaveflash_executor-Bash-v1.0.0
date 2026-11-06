@@ -26,23 +26,82 @@ dropzone.addEventListener("drop",e=>{
   showFile(file);
 });
 
-function readBits(bytes, state, count){
+function readBits(bytes,state,count){
   let value=0;
   for(let i=0;i<count;i++){
     const byte=bytes[state.bit>>3];
-    if(byte===undefined)throw new Error("Unexpected end of SWF header.");
+    if(byte===undefined)throw new Error("Unexpected end of SWF RECT header.");
     value=(value<<1)|((byte>>(7-(state.bit&7)))&1);
     state.bit++;
   }
   return value;
 }
-async function getUncompressedBody(buffer, signature){
+function readSignedBits(bytes,state,count){
+  const value=readBits(bytes,state,count);
+  return value&(1<<(count-1)) ? value-(2**count) : value;
+}
+async function getUncompressedBody(buffer,signature){
   const bytes=new Uint8Array(buffer);
   if(signature==="FWS")return bytes.subarray(8);
-  if(signature==="ZWS")throw new Error("ZWS/LZMA files are not supported by this browser build yet. Try an FWS or CWS file.");
-  if(typeof DecompressionStream==="undefined")throw new Error("This browser does not support the built-in decompression API needed for CWS files. Try an FWS file.");
+  if(signature==="ZWS")throw new Error("ZWS/LZMA files are not supported yet. Try an FWS or CWS file.");
+  if(typeof DecompressionStream==="undefined")throw new Error("This browser lacks the decompression API required for CWS files. Try an FWS file.");
   const stream=new Blob([bytes.subarray(8)]).stream().pipeThrough(new DecompressionStream("deflate"));
   return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+const TAG_NAMES={
+  0:"End",1:"ShowFrame",2:"DefineShape",4:"PlaceObject",5:"RemoveObject",
+  6:"DefineBits",7:"DefineButton",8:"JPEGTables",9:"SetBackgroundColor",
+  10:"DefineFont",11:"DefineText",12:"DoAction",13:"DefineFontInfo",
+  14:"DefineSound",15:"StartSound",18:"SoundStreamHead",19:"SoundStreamBlock",
+  20:"DefineBitsLossless",21:"DefineBitsJPEG2",22:"DefineShape2",24:"Protect",
+  26:"PlaceObject2",28:"RemoveObject2",32:"DefineShape3",33:"DefineText2",
+  34:"DefineButton2",35:"DefineBitsJPEG3",36:"DefineBitsLossless2",
+  37:"DefineEditText",39:"DefineSprite",43:"FrameLabel",46:"DefineMorphShape",
+  48:"DefineFont2",56:"ExportAssets",57:"ImportAssets",59:"DoInitAction",
+  60:"DefineVideoStream",61:"VideoFrame",62:"DefineFontInfo2",69:"FileAttributes",
+  70:"PlaceObject3",71:"ImportAssets2",73:"DefineFontAlignZones",
+  74:"CSMTextSettings",75:"DefineFont3",76:"SymbolClass",77:"Metadata",
+  78:"DefineScalingGrid",82:"DoABC",83:"DefineShape4",87:"DefineBinaryData",
+  88:"DefineFontName",89:"StartSound2",90:"DefineBitsJPEG4",91:"DefineFont4"
+};
+function parseTagStream(bytes,start=0,end=bytes.length,depth=0,stats){
+  let offset=start;
+  const tags=[];
+  while(offset<end){
+    if(offset+2>end)throw new Error("Truncated SWF tag record header.");
+    const record=bytes[offset]|(bytes[offset+1]<<8);
+    offset+=2;
+    const code=record>>>6;
+    let length=record&63;
+    if(length===63){
+      if(offset+4>end)throw new Error("Truncated long SWF tag length.");
+      length=new DataView(bytes.buffer,bytes.byteOffset+offset,4).getUint32(0,true);
+      offset+=4;
+    }
+    if(offset+length>end)throw new Error("A SWF tag extends beyond its containing timeline.");
+    const payload=bytes.subarray(offset,offset+length);
+    offset+=length;
+    stats.total++;
+    if(stats.total>1000000)throw new Error("The file contains an unreasonable number of tags.");
+    const name=TAG_NAMES[code]||("Tag "+code);
+    stats.counts[name]=(stats.counts[name]||0)+1;
+    if(code===12)stats.doAction++;
+    if(code===59)stats.doInitAction++;
+    if(code===82)stats.doABC++;
+    if(code===39){
+      stats.sprites++;
+      if(length<4)throw new Error("A DefineSprite tag is too short.");
+      if(depth>=32)throw new Error("Sprite nesting exceeds the parser safety limit.");
+      const spriteId=new DataView(payload.buffer,payload.byteOffset,4).getUint16(0,true);
+      const spriteFrames=new DataView(payload.buffer,payload.byteOffset,4).getUint16(2,true);
+      const nested=parseTagStream(payload,4,payload.length,depth+1,stats);
+      tags.push({code,name,length,spriteId,spriteFrames,nested});
+    }else{
+      tags.push({code,name,length});
+    }
+    if(code===0){stats.endTags++;break;}
+  }
+  return tags;
 }
 async function inspectSwf(file){
   const buffer=await file.arrayBuffer();
@@ -50,56 +109,38 @@ async function inspectSwf(file){
   const bytes=new Uint8Array(buffer);
   const signature=String.fromCharCode(...bytes.subarray(0,3));
   if(!["FWS","CWS","ZWS"].includes(signature))throw new Error("Invalid SWF signature. Expected FWS, CWS, or ZWS.");
-  const view=new DataView(buffer);
   const version=bytes[3];
-  const declaredLength=view.getUint32(4,true);
+  const declaredLength=new DataView(buffer).getUint32(4,true);
   if(declaredLength<8||declaredLength>250*1024*1024)throw new Error("The declared uncompressed SWF size is invalid or exceeds the 250 MB safety limit.");
   const body=await getUncompressedBody(buffer,signature);
-  if(body.length+8!==declaredLength)throw new Error("The SWF length field does not match the decoded file size. The file may be damaged or use an unsupported compression variant.");
-
-  const bitState={bit:0};
-  const nbits=readBits(body,bitState,5);
-  const rectBits=5+nbits*4;
-  const rectBytes=Math.ceil(rectBits/8);
+  if(body.length+8!==declaredLength)throw new Error("The SWF length field does not match the decoded file size.");
+  const state={bit:0};
+  const nbits=readBits(body,state,5);
+  const xMin=readSignedBits(body,state,nbits);
+  const xMax=readSignedBits(body,state,nbits);
+  const yMin=readSignedBits(body,state,nbits);
+  const yMax=readSignedBits(body,state,nbits);
+  const rectBytes=Math.ceil(state.bit/8);
   if(body.length<rectBytes+4)throw new Error("Incomplete SWF frame header.");
-  const rectState={bit:0};
-  const xMin=readBits(body,rectState,nbits);
-  const xMax=readBits(body,rectState,nbits);
-  const yMin=readBits(body,rectState,nbits);
-  const yMax=readBits(body,rectState,nbits);
   const frameView=new DataView(body.buffer,body.byteOffset+rectBytes,4);
   const frameRate=frameView.getUint16(0,true)/256;
   const frameCount=frameView.getUint16(2,true);
-  let offset=rectBytes+4;
-  const tags=[];
-  let hasDoABC=false,hasABC=false,hasSymbolClass=false,ended=false;
-  while(offset<body.length){
-    if(offset+2>body.length)throw new Error("Truncated SWF tag header.");
-    const record=body[offset]|(body[offset+1]<<8);
-    offset+=2;
-    const code=record>>6;
-    let length=record&63;
-    if(length===63){
-      if(offset+4>body.length)throw new Error("Truncated long SWF tag header.");
-      length=new DataView(body.buffer,body.byteOffset+offset,4).getUint32(0,true);
-      offset+=4;
-    }
-    if(offset+length>body.length)throw new Error("A SWF tag extends beyond the end of the file.");
-    tags.push({code,length});
-    if(code===82)hasDoABC=true;
-    if(code===72)hasABC=true;
-    if(code===76)hasSymbolClass=true;
-    offset+=length;
-    if(code===0){ended=true;break;}
-    if(tags.length>1000000)throw new Error("The file contains an unreasonable number of SWF tags.");
+  const stats={total:0,counts:{},doAction:0,doInitAction:0,doABC:0,sprites:0,endTags:0};
+  const tags=parseTagStream(body,rectBytes+4,body.length,0,stats);
+  const rootCounts={};
+  for(const tag of tags)rootCounts[tag.name]=(rootCounts[tag.name]||0)+1;
+  const fileAttributes=tags.find(tag=>tag.code===69);
+  let as3Flag=false;
+  if(fileAttributes&&fileAttributes.length>=4){
+    const payloadOffset=rectBytes+4;
+    // FileAttributes flags are inspected from the original tag stream by tag parser metadata in a future enhancement.
   }
-  const names=new Map([[0,"End"],[1,"ShowFrame"],[9,"SetBackgroundColor"],[12,"DoAction"],[26,"PlaceObject2"],[28,"RemoveObject2"],[39,"DefineSprite"],[43,"FrameLabel"],[56,"ExportAssets"],[69,"FileAttributes"],[72,"DoABC"],[76,"SymbolClass"],[82,"DoABCDefine"],[87,"DefineBinaryData"]]);
-  const counts={};
-  for(const tag of tags){const name=names.get(tag.code)||("Tag "+tag.code);counts[name]=(counts[name]||0)+1;}
   return {
     signature,version,declaredLength,frameRate,frameCount,
-    width:Math.max(0,xMax-xMin)/20,height:Math.max(0,yMax-yMin)/20,
-    tagCount:tags.length,hasDoABC,hasABC,hasSymbolClass,ended,counts
+    width:(xMax-xMin)/20,height:(yMax-yMin)/20,
+    rootTagCount:tags.length,totalTagCount:stats.total,
+    doAction:stats.doAction,doInitAction:stats.doInitAction,doABC:stats.doABC,
+    sprites:stats.sprites,endTags:stats.endTags,counts:stats.counts,rootCounts
   };
 }
 form.addEventListener("submit",async e=>{
@@ -107,15 +148,20 @@ form.addEventListener("submit",async e=>{
   const file=fileInput.files[0];
   if(!file)return setStatus("Choose a file","Select the parent SWF first.","error");
   if(!file.name.toLowerCase().endsWith(".swf"))return setStatus("Unsupported file","Only .swf files are accepted.","error");
-  if(file.size>100*1024*1024)return setStatus("File too large","The current browser-side upload limit is 100 MB.","error");
+  if(file.size>100*1024*1024)return setStatus("File too large","The current browser-side limit is 100 MB.","error");
   submitButton.disabled=true;
   submitButton.textContent="Analyzing in browser…";
-  setStatus("Reading SWF locally","No file is being uploaded. Parsing the SWF header and tag stream in this browser.");
+  setStatus("Reading SWF locally","The file stays in this browser. Parsing the header and nested timelines.");
   try{
-    const result=await inspectSwf(file);
-    const tagSummary=Object.entries(result.counts).slice(0,8).map(([name,count])=>name+": "+count).join(", ");
-    const details=result.signature+" · SWF "+result.version+" · "+result.width.toFixed(0)+" × "+result.height.toFixed(0)+" px · "+result.frameRate.toFixed(2)+" FPS · "+result.frameCount+" frames · "+result.tagCount+" tags. "+(result.hasDoABC?"AVM2 DoABC bytecode found. ":result.hasABC?"AVM1 ActionScript bytecode found. ":"No ActionScript bytecode tag detected. ")+(result.ended?"End tag present. ":"End tag missing. ")+"Tags: "+tagSummary+".";
-    setStatus("SWF analyzed successfully",details+" Browser-only inspection is working. Loader injection is not enabled yet: this build still needs a compiled AS3 bootstrap payload and a safe bytecode-injection step. No output file was fabricated.","good");
+    const r=await inspectSwf(file);
+    const actionText=r.doABC
+      ? "AVM2 bytecode detected (DoABC)."
+      : (r.doAction||r.doInitAction)
+        ? "AVM1 ActionScript detected (DoAction / DoInitAction)."
+        : "No ActionScript bytecode tags detected.";
+    const details=r.signature+" · SWF "+r.version+" · "+r.width.toFixed(0)+" × "+r.height.toFixed(0)+" px · "+r.frameRate.toFixed(2)+" FPS · "+r.frameCount+" root frames · "+r.rootTagCount+" root tags · "+r.totalTagCount+" total tags including sprites. "+r.sprites+" sprites. "+actionText+" DoAction: "+r.doAction+" · DoInitAction: "+r.doInitAction+" · DoABC: "+r.doABC+".";
+    const top=Object.entries(r.rootCounts).slice(0,7).map(([name,count])=>name+": "+count).join(", ");
+    setStatus("SWF analyzed successfully",details+" Root tags: "+top+". Loader injection and output generation are not enabled yet; no output file was fabricated.","good");
   }catch(error){
     setStatus("Could not analyze SWF",error.message||"Unknown parsing error.","error");
   }finally{
