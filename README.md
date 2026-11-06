@@ -36,3 +36,7 @@ Flash SWF has two standard ActionScript virtual-machine generations:
 - **AVM2 / ActionScript 3:** `loader/avm2/ExternalSwfLoader.as`. This is an AS3 `Sprite` class using `flash.display.Loader`. Compile it into an AVM2 parent.
 
 There is no third standard AVM generation in ordinary Adobe Flash SWF. AVM1 and AVM2 are the supported targets here. The parent and external child should use compatible AVM generations; an AVM1 parent should not be assumed to load an AVM2 child, or vice versa. These are source files, not compiled loader SWFs. They still need to be compiled with their matching ActionScript toolchain and integrated into a parent project.
+
+## Automatic AVM selection
+
+The browser parser checks the SWF `FileAttributes` AS3 flag and `DoABC` tags for AVM2. If those are absent, it checks `DoAction` and `DoInitAction` tags, including nested sprite timelines, for AVM1. It then selects the matching loader source in the interface. If no decisive marker is present, the runtime selector remains editable so the user can choose manually. This is runtime detection and source selection only; it does not yet inject or compile the loader.
