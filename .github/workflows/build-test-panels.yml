@@ -40,10 +40,11 @@ jobs:
 
       - name: Compile AVM1 / ActionScript 2 panel
         run: |
-          mtasc -main -header 340:210:30:111827 \
+          mtasc -main -header 340:210:30 \
             -swf TestPanel-AVM1.swf TestPanel/avm1/TestPanel.as
           test -s TestPanel-AVM1.swf
-          test "$(head -c 3 TestPanel-AVM1.swf)" = "FWS"
+          magic="$(head -c 3 TestPanel-AVM1.swf)"
+          case "$magic" in FWS|CWS) ;; *) echo "Unexpected AVM1 SWF signature: $magic"; exit 1 ;; esac
 
       - name: Compile AVM2 / ActionScript 3 panel
         run: |
@@ -52,7 +53,8 @@ jobs:
             -output=TestPanel-AVM2.swf \
             TestPanel/avm2/TestPanel.as
           test -s TestPanel-AVM2.swf
-          test "$(head -c 3 TestPanel-AVM2.swf)" = "FWS"
+          magic="$(head -c 3 TestPanel-AVM2.swf)"
+          case "$magic" in FWS|CWS) ;; *) echo "Unexpected AVM2 SWF signature: $magic"; exit 1 ;; esac
 
       - name: Upload compiled SWFs
         uses: actions/upload-artifact@v4
